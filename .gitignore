@@ -1,0 +1,19 @@
+
+*.txt
+
+
+zig-cache/
+.zig-cache/
+zig-out/
+*.o
+/release/
+/debug/
+/build/
+/build-*/
+/docgen_tmp/
+
+# Local package/cache artifacts.
+/zig-pkg/
+
+.idea/
+.vscode/
