@@ -2,8 +2,8 @@
 
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-const Grid = @import("../core/grid.zig").Grid;
-const Span = @import("../core/span.zig").Span;
+const Grid = @import("core").Grid;
+const Span = @import("core").Span;
 const kernel = @import("ops_kernel.zig");
 
 pub fn add(comptime T: type, allocator: Allocator, a: anytype, b: anytype) !@TypeOf(a) {

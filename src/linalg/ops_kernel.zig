@@ -1,7 +1,7 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-const FlatView = @import("../core/flatview.zig").FlatView;
+const FlatView = @import("core").FlatView;
 
 
 pub fn addKernel(comptime T: type, out: []T, a: FlatView(T), b: FlatView(T)) void {

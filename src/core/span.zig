@@ -1,7 +1,14 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const FlatView = @import("flatview.zig").FlatView;
-const ops = @import("../linalg/ops.zig");
+const ops = @import("linalg").ops;
+const random = @import("random.zig");
+
+
+const SpanError = error {
+    InvalidOrientation,
+    OutOfMemory,
+};
 
 const Orient = enum {
     row,
@@ -121,6 +128,76 @@ pub fn Span(comptime T: type) type {
                 },
             }
             return Span(as_type).create(self.allocator, out, .row);
+        }
+
+        pub inline fn show(self: Self) SpanError!void {
+            var string = std.ArrayList(u8).empty;
+            defer string.deinit(self.allocator);
+
+        var row_num: usize = undefined;
+            var col_num: usize = undefined;
+
+            if (self.inner.orient == .row) {
+                row_num = 1;
+                col_num = self.inner.len;
+            } else if (self.inner.orient == .col) {
+                row_num = self.inner.len;
+                col_num = 1;
+            } else {
+                return error.InvalidOrientation;
+            }
+
+            try string.appendSlice(self.allocator, "Span([\n");
+
+            var index: usize = 0;
+            for (0..row_num) |_| {
+                try string.appendSlice(self.allocator, "  [");
+                if (self.inner.orient == .col) index += 1;
+
+                for (0..col_num) |j| {
+                if (self.inner.orient == .row) index += 1;
+
+                    if (j != (col_num - 1)) {
+                        const string_of_value = try std.fmt.allocPrint(self.allocator, "{d}, ", .{self.at((index - 1))});
+                        defer self.allocator.free(string_of_value);
+
+                        try string.appendSlice(self.allocator, string_of_value);
+                    } else {
+                        const string_of_value = try std.fmt.allocPrint(self.allocator, "{d}", .{self.at((index - 1))});
+                        defer self.allocator.free(string_of_value);
+                        try string.appendSlice(self.allocator, string_of_value);
+                    }
+                }
+                try string.appendSlice(self.allocator, "]\n");
+            }
+            try string.appendSlice(self.allocator, "])\ntype: ");
+            try string.appendSlice(self.allocator, @typeName(@TypeOf(self.inner.data[0])) ++ "\n");
+
+            std.debug.print("{s}", .{string.items});
+        }
+
+        pub inline fn xoshiroGen(allocator: Allocator, seed: usize, len: usize, orient: Orient) !Self {
+            if (orient != .row and orient != .col) return error.InvalidOrientation;
+
+            var prng = std.Random.DefaultPrng.init(seed);
+            const rand_gen = prng.random();
+
+            const data = try allocator.alloc(T, len);
+
+            const rand_span = Self {
+                .allocator = allocator,
+                .inner = .{
+                    .data = data,
+                    .len = len,
+                    .orient = orient,
+                    .stride = 1
+                }
+            };
+
+            random.randomNumberGen(T, rand_span.inner.data, rand_gen);
+
+            return rand_span;
+
         }
 
         pub fn destroy(self: Self) void {

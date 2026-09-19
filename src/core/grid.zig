@@ -1,10 +1,12 @@
 const std = @import("std");
-const SpanView = @import("span.zig").SpanView;
 const Allocator = std.mem.Allocator;
-const ops = @import("../linalg/ops.zig");
-const FlatView = @import("flatview.zig").FlatView;
 
-const GridError = error{ IndexOutOfBound, DataDimensionMisMatch }; // Will implement this later
+const SpanView = @import("span.zig").SpanView;
+const ops = @import("linalg").ops;
+const FlatView = @import("flatview.zig").FlatView;
+const random = @import("random.zig");
+
+const GridError = error{ IndexOutOfBound, DataDimensionMisMatch, OutOfMemory }; // Will implement the Index stuff later
 
 pub fn Grid(comptime T: type) type {
     return struct {
@@ -15,8 +17,8 @@ pub fn Grid(comptime T: type) type {
         strides: [2]usize,
         allocator: Allocator,
 
-        pub fn construct(allocator: Allocator, data: []const T, dim: [2]usize) !Self {
-            std.debug.assert(data.len == (dim[0] * dim[1]));
+        pub fn construct(allocator: Allocator, data: []const T, dim: [2]usize) GridError!Self {
+            if (!(data.len == (dim[0] * dim[1]))) return error.DataDimensionMisMatch;
 
             const owned_data = try allocator.dupe(T, data);
 
@@ -127,10 +129,60 @@ pub fn Grid(comptime T: type) type {
             };
         }
 
+        pub inline fn show(self: Self) !void {
+            var string = std.ArrayList(u8).empty;
+            defer string.deinit(self.allocator);
+
+            try string.appendSlice(self.allocator, "Grid([\n");
+
+            for (0..self.dim[0]) |i| {
+                try string.appendSlice(self.allocator, "  [");
+
+                for (0..self.dim[1]) |j| {
+                    if (j != (self.dim[1] - 1)) {
+                        const string_of_value = try std.fmt.allocPrint(self.allocator, "{d}, ", .{self.at(i, j)});
+                        defer self.allocator.free(string_of_value);
+                        try string.appendSlice(self.allocator, string_of_value);
+                    } else {
+                        const string_of_value = try std.fmt.allocPrint(self.allocator, "{d}", .{self.at(i, j)});
+                        defer self.allocator.free(string_of_value);
+                        try string.appendSlice(self.allocator, string_of_value);
+                    }
+                }
+                try string.appendSlice(self.allocator, "]\n");
+            }
+            try string.appendSlice(self.allocator, "])\ntype: ");
+            try string.appendSlice(self.allocator, @typeName(@TypeOf(self.data[0])) ++ "\n");
+
+            std.debug.print("{s}", .{string.items});
+        }
+
+        pub inline fn xoshiroGen(allocator: Allocator, seed: usize, len: usize, dim: [2]usize) !Self {
+            if ((len != (dim[0] * dim[1]))) return error.DataDimensionMisMatch;
+
+            var prng = std.Random.DefaultPrng.init(seed);
+            const rand_gen = prng.random();
+
+            const data = try allocator.alloc(T, len);
+
+            const rand_grid = Self {
+                .allocator = allocator,
+                .data = data,
+                .dim = dim,
+                .strides = [2]usize{ dim[1], 1 },
+            };
+
+            random.randomNumberGen(T, rand_grid.data, rand_gen);
+
+            return rand_grid;
+
+        }
+
         pub fn destruct(self: Self) void {
             self.allocator.free(self.data);
         }
     };
+
 }
 
 test "Test Basic Grid" {
@@ -254,9 +306,9 @@ test "Test division ops" {
 test "Test casting" {
     const allocator = std.testing.allocator;
 
-    const a = try Grid(i16).construct(allocator, &.{1, 2, 3, 4, 5, 6}, .{3, 2});
+    const a = try Grid(i16).construct(allocator, &.{ 1, 2, 3, 4, 5, 6 }, .{ 3, 2 });
     defer a.destruct();
-    const b = try Grid(i16).construct(allocator, &.{7, 8, 9, 10, 11, 12}, .{3, 2});
+    const b = try Grid(i16).construct(allocator, &.{ 7, 8, 9, 10, 11, 12 }, .{ 3, 2 });
     defer b.destruct();
 
     const a_i32 = try a.as(i32);
@@ -273,7 +325,6 @@ test "Test casting" {
     try std.testing.expect(@TypeOf(b_u16.data) == []u16);
     try std.testing.expect(@TypeOf(a_f16.data) == []f16);
     try std.testing.expect(@TypeOf(b_f64.data) == []f64);
-
 }
 
 test "Test using arena allocator to see if I don't need to defer each Grid" {
@@ -283,11 +334,10 @@ test "Test using arena allocator to see if I don't need to defer each Grid" {
 
     const arena_allocator = arena.allocator();
 
-    const a = try Grid(i32).construct(arena_allocator, &.{1, 2, 3, 4, 5, 6}, .{2, 3});
-    const b = try Grid(i32).construct(arena_allocator, &.{1, 2, 3, 4, 5, 6}, .{2, 3});
-    
+    const a = try Grid(i32).construct(arena_allocator, &.{ 1, 2, 3, 4, 5, 6 }, .{ 2, 3 });
+    const b = try Grid(i32).construct(arena_allocator, &.{ 1, 2, 3, 4, 5, 6 }, .{ 2, 3 });
+
     const c = try ops.add(i32, arena_allocator, a, b);
 
-    try std.testing.expectEqualSlices(i32, &.{2, 4, 6, 8, 10, 12}, c.data[0..]);
-    
+    try std.testing.expectEqualSlices(i32, &.{ 2, 4, 6, 8, 10, 12 }, c.data[0..]);
 }
