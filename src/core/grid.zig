@@ -2,7 +2,7 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 
 const SpanView = @import("span.zig").SpanView;
-const ops = @import("linalg").ops;
+const ops = @import("ops.zig");
 const FlatView = @import("flatview.zig").FlatView;
 const random = @import("random.zig");
 

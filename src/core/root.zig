@@ -3,6 +3,7 @@ pub const Grid = @import("grid.zig").Grid;
 pub const Span = @import("span.zig").Span;
 pub const FlatView = @import("flatview.zig").FlatView;
 pub const random = @import("random.zig");
+pub const ops = @import("ops.zig");
 
 test {
     std.testing.refAllDecls(@This());

@@ -1,7 +1,7 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const FlatView = @import("flatview.zig").FlatView;
-const ops = @import("linalg").ops;
+const ops = @import("ops.zig");
 const random = @import("random.zig");
 
 

@@ -1,8 +1,5 @@
-pub const ops = @import("ops.zig");
-pub const ops_kernel = @import("ops_kernel.zig");
-
 const std = @import("std");
-
+pub const matmul = @import("matmul.zig").matmul;
 test {
     std.testing.refAllDecls(@This());
 }

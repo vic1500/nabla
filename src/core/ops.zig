@@ -2,9 +2,13 @@
 
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-const Grid = @import("core").Grid;
-const Span = @import("core").Span;
+const Grid = @import("grid.zig").Grid;
+const Span = @import("span.zig").Span;
 const kernel = @import("ops_kernel.zig");
+
+const OpsError = error {
+    DivisionByZero
+};
 
 pub fn add(comptime T: type, allocator: Allocator, a: anytype, b: anytype) !@TypeOf(a) {
     comptime {
@@ -103,12 +107,12 @@ pub fn div(comptime T: type, allocator: Allocator, a: anytype, b: anytype) !@Typ
     if (comptime (@TypeOf(a) == Grid(T) and @TypeOf(b) == Grid(T))) {
         std.debug.assert(a.size() == b.size());
         const out = try allocator.alloc(T, a.size());
-        kernel.divKernel(T, out, a.asFlat(), b.asFlat());
+        try kernel.divKernel(T, out, a.asFlat(), b.asFlat());
         return .{ .allocator = allocator, .data = out, .strides = a.strides, .dim = a.dim };
     } else if (comptime (@TypeOf(a) == Span(T) and @TypeOf(b) == Span(T))) {
         std.debug.assert(a.inner.len == b.inner.len);
         const out = try allocator.alloc(T, a.inner.len);
-        kernel.divKernel(T, out, a.asFlat(), b.asFlat());
+        try kernel.divKernel(T, out, a.asFlat(), b.asFlat());
         return .{
             .allocator = allocator,
             .inner = .{ .data = out, .len = a.inner.len, .stride = 1, .orient = a.inner.orient },
